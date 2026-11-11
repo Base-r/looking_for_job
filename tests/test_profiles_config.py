@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
 import tomllib
 
 from snpr.cli import _letter_profile, _letter_static_text, _scoring_profile
@@ -23,11 +24,18 @@ CONFIG = (
 )
 
 
+# profile.md и letter_style.md личные и в git не входят
+needs_personal_files = pytest.mark.skipif(
+    not (CONFIG.parent.parent / "profile.md").exists(), reason="нет личного profile.md"
+)
+
+
 def _cfg() -> dict[str, Any]:
     with CONFIG.open("rb") as fh:
         return tomllib.load(fh)
 
 
+@needs_personal_files
 def test_config_profiles_come_from_files() -> None:
     """Профиль — profile.md, стиль — letter_style.md ([files] в конфиге);
     скоринг и письмо видят один и тот же профиль."""
@@ -82,6 +90,7 @@ def test_letter_system_prompt_profile() -> None:
     assert "Ромашка" in letter_system_prompt(None)
 
 
+@needs_personal_files
 def test_guard_numbers_follow_profile_file() -> None:
     """Числа гварда берутся из profile.md: сменил факты — сменились
     разрешённые числа."""
