@@ -9,8 +9,11 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-PREFIXES = {"gj:": "geekjob", "hc:": "habr", "tg:": "telegram"}
-LABELS = {"hh": "hh", "geekjob": "GeekJob", "habr": "Habr Career", "telegram": "Telegram"}
+PREFIXES = {"gj:": "geekjob", "hc:": "habr", "tg:": "telegram", "sj:": "superjob"}
+LABELS = {
+    "hh": "hh", "geekjob": "GeekJob", "habr": "Habr Career",
+    "telegram": "Telegram", "superjob": "SuperJob",
+}
 
 # по умолчанию: что из вакансий внешних источников вообще смотреть
 DEFAULT_TITLE_MUST = (
@@ -80,6 +83,16 @@ class ExternalSources:
                 pause=pause,
             )
             self.active["telegram"].on_issue = self._telegram_issue
+        if cfg.get("superjob"):
+            from .superjob import KEY_ENV, SuperJobSource
+
+            source = SuperJobSource(
+                pause=pause, queries=cfg.get("superjob_queries") or DEFAULT_HABR_QUERIES
+            )
+            if source.key:
+                self.active["superjob"] = source
+            elif log is not None:  # ключа нет — это не сбой поиска
+                log.warn("superjob", f"пропущен: нет {KEY_ENV} в .env")
 
     def _telegram_issue(self, channel: str, text: str, failed: bool) -> None:
         if self.log is None:
@@ -154,6 +167,10 @@ class ExternalSources:
             from .habr import HabrSource
 
             return HabrSource(pause=0)
+        if source == "superjob":
+            from .superjob import SuperJobSource
+
+            return SuperJobSource(pause=0)
         from .telegram_jobs import TelegramSource
 
         return TelegramSource(pause=0)

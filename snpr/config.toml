@@ -131,6 +131,9 @@ telegram_channels = [
     "foranalysts", "geekjobs", "forproducts", "hcareers_jobs", "yuniorapp",
     "rabotavmediawe", "itmarket_uz",
 ]
+# SuperJob: официальное API, ключ SJ_KEY в .env (нет ключа — источник пропускается).
+superjob = true
+superjob_queries = ["аналитик", "analyst", "project manager", "руководитель проектов", "менеджер проектов", "product manager", "менеджер продукта"]
 # Вакансии внешних источников оцениваются, только если название подходит
 # под это регулярное выражение (сайты и каналы — все профессии подряд).
 # Опыт отсекается по [search.params].experience, если источник его указал.
