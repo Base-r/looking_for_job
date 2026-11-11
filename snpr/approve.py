@@ -69,6 +69,8 @@ def vacancy_url(vacancy: object) -> str:
         return f"https://t.me/{vid[3:]}"
     if vid.startswith("sj:"):  # адрес вакансии строится со слагом, по id его не собрать
         return "https://www.superjob.ru/"
+    if vid.startswith("tm:"):
+        return f"https://talent-move.ru/jobs/{vid[3:]}/"
     return f"https://hh.ru/vacancy/{vid}" if vid else ""
 
 

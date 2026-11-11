@@ -9,10 +9,10 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-PREFIXES = {"gj:": "geekjob", "hc:": "habr", "tg:": "telegram", "sj:": "superjob"}
+PREFIXES = {"gj:": "geekjob", "hc:": "habr", "tg:": "telegram", "sj:": "superjob", "tm:": "talent_move"}
 LABELS = {
     "hh": "hh", "geekjob": "GeekJob", "habr": "Habr Career",
-    "telegram": "Telegram", "superjob": "SuperJob",
+    "telegram": "Telegram", "superjob": "SuperJob", "talent_move": "Talent Move",
 }
 
 # по умолчанию: что из вакансий внешних источников вообще смотреть
@@ -101,6 +101,12 @@ class ExternalSources:
                 self.active["superjob"] = source
             elif log is not None:  # ключа нет — это не сбой поиска
                 log.warn("superjob", f"пропущен: нет {KEY_ENV} в .env")
+        if cfg.get("talent_move"):
+            from .talent_move import DEFAULT_CATEGORIES, TalentMoveSource
+
+            self.active["talent_move"] = TalentMoveSource(
+                categories=cfg.get("talent_move_categories") or DEFAULT_CATEGORIES, pause=pause
+            )
 
     def _telegram_issue(self, channel: str, text: str, failed: bool) -> None:
         if self.log is None:
@@ -179,6 +185,10 @@ class ExternalSources:
             from .superjob import SuperJobSource
 
             return SuperJobSource(pause=0)
+        if source == "talent_move":
+            from .talent_move import TalentMoveSource
+
+            return TalentMoveSource(pause=0)
         from .telegram_jobs import TelegramSource
 
         return TelegramSource(pause=0)
