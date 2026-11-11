@@ -399,3 +399,16 @@ def test_telegram_and_habr_marked_applied_without_hh(web) -> None:
         res = call("/api/send", {"vid": vid, "letter": "Письмо."})[1]
         assert res["status"] == "sent" and res["closed"]
     assert api.posts == []
+
+
+def test_suspicious_flags_reach_the_card(web) -> None:
+    call, _api, parked, url, _state = web()
+    parked.append_record(
+        {**_vacancy("tg:ch/5"), "flags": ["просят предоплату"]},
+        ScoreResult(vacancy_id="tg:ch/5", score=70, verdict="maybe"),
+        "Письмо.",
+    )
+    items = {i["vid"]: i for i in call("/api/queue")[1]["items"]}
+    assert items["tg:ch/5"]["flags"] == ["просят предоплату"] and items["1"]["flags"] == []
+    with urllib.request.urlopen(url, timeout=10) as resp:
+        assert "проверьте работодателя" in resp.read().decode("utf-8")

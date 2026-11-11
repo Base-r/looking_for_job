@@ -119,11 +119,22 @@ class ExternalSources:
         if src is None:  # источник выключили, а вакансия осталась в отложенных
             src = self._make(source)
         try:
-            return src.description(vacancy)
+            text = src.description(vacancy)
         except Exception as ex:
             if self.log is not None:
                 self.log.warn(source, f"описание {vacancy.get('id')} не получено: {ex}")
             raise
+        self._mark_suspicious(vacancy, source, text)
+        return text
+
+    def _mark_suspicious(self, vacancy: Mapping[str, Any], source: str, text: str) -> None:
+        from .fraud import suspicious
+
+        flags = suspicious(f"{vacancy.get('name') or ''}\n{text}")
+        if flags and isinstance(vacancy, dict):
+            vacancy["flags"] = flags
+            if self.log is not None:
+                self.log.warn(source, f"подозрительно {vacancy.get('id')}: {', '.join(flags)}")
 
     @staticmethod
     def _make(source: str) -> Any:
