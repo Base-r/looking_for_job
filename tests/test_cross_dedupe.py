@@ -85,3 +85,16 @@ def test_telegram_keeps_links_from_post() -> None:
         '<time datetime="2026-11-09T10:00:00+00:00">x</time></div></div>'
     )
     assert linked_ids(parse_channel(page)[0]) == {"42"}
+
+
+def test_long_identical_title_without_company_is_duplicate() -> None:
+    from snpr.cross_dedupe import drop_cross_duplicates
+
+    name = "Project Manager (New Ventures Manager) / Менеджер по запуску новых направлений — Rythm Group"
+    a = {"id": "tg:a/1", "name": name, "employer": {"name": "@a"}, "description": "Текст первого канала " * 10}
+    b = {"id": "tg:b/2", "name": name, "employer": {"name": "@b"}, "description": "Совсем другое оформление " * 10}
+    short_a = {"id": "tg:a/3", "name": "Project Manager", "employer": {"name": "@a"}, "description": "x " * 50}
+    short_b = {"id": "tg:b/4", "name": "Project Manager", "employer": {"name": "@b"}, "description": "y " * 50}
+    kept, dropped = drop_cross_duplicates([a, b, short_a, short_b])
+    assert [v["id"] for v in dropped] == ["tg:b/2"]
+    assert [v["id"] for v in kept] == ["tg:a/1", "tg:a/3", "tg:b/4"]

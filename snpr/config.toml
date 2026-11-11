@@ -136,6 +136,7 @@ telegram_channels = [
     "foranalysts", "geekjobs", "forproducts", "hcareers_jobs", "yuniorapp",
     "rabotavmediawe", "itmarket_uz",
     "evacuatejobs", "wantapply_managers", "cpo_job", "job_analyst_datascience", "opento_data",
+    "runello_jobs_analyst", "jobs_it",
 ]
 # SuperJob: официальное API, ключ SJ_KEY в .env (нет ключа — источник пропускается).
 superjob = true

@@ -16,6 +16,7 @@ from typing import Any, Iterable, Mapping
 
 TITLE_SIMILAR = 0.9
 TEXT_SIMILAR = 0.85
+LONG_TITLE_WORDS = 6
 _TEXT_CHARS = 500
 
 _LINKS = (
@@ -81,14 +82,18 @@ def drop_cross_duplicates(
         duplicate = bool((linked_ids(vacancy) - {vid}) & pool)
         if not duplicate and company:
             duplicate = any(_same_title(title, t) for t in by_company.get(company, []))
-        if not duplicate and not company and text:
-            duplicate = any(_similar(text, t, TEXT_SIMILAR) for t in by_title.get(title, []))
+        if not duplicate and not company and title in by_title:
+            # длинное название («PM / Менеджер по запуску … — Rythm Group») само
+            # по себе уникально: каналы оформляют один пост по-разному
+            duplicate = len(title.split()) >= LONG_TITLE_WORDS or any(
+                _similar(text, t, TEXT_SIMILAR) for t in by_title[title] if text
+            )
         if duplicate:
             dropped.append(vacancy)
             continue
         kept.append(vacancy)
         if company:
             by_company.setdefault(company, []).append(title)
-        elif text:
+        else:
             by_title.setdefault(title, []).append(text)
     return kept, dropped
