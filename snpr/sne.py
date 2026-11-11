@@ -1161,6 +1161,16 @@ def run_sne(args: argparse.Namespace) -> int:
         _release_run_lock(lock_path, lock)
 
 
+def _add_notes(vacancy: Mapping[str, Any], description: str) -> None:
+    """Пометки «ℹ️» на карточку (только из России, тестовое) — скор не меняют."""
+    from .notes import notes
+    from .scoring import _strip_html
+
+    found = notes(f"{vacancy.get('name') or ''}\n{_strip_html(description or '')}")
+    if found and isinstance(vacancy, dict):
+        vacancy["notes"] = found
+
+
 def _run_sne_locked(args: argparse.Namespace) -> int:
     from .filters import PipelineFilter
     from .hh_tool import SavingHHApplicantTool
@@ -1440,11 +1450,14 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
         from .sources import is_external, source_of
 
         if not is_external(vacancy):
-            return cards.description(vacancy)
-        try:
-            return external.description(vacancy)
-        except Exception as ex:  # noqa: BLE001 — сбой внешнего сайта не держит hh
-            raise VacancyGone(f"{source_of(vacancy)}: {ex}") from ex
+            text = cards.description(vacancy)
+        else:
+            try:
+                text = external.description(vacancy)
+            except Exception as ex:  # noqa: BLE001 — сбой внешнего сайта не держит hh
+                raise VacancyGone(f"{source_of(vacancy)}: {ex}") from ex
+        _add_notes(vacancy, text)
+        return text
 
     def _progress(done: int, total: int) -> None:
         """Прогресс скоринга: каждая 10-я завершённая попытка и финал."""

@@ -85,6 +85,7 @@ def queue_items(service: ApproveService) -> list[dict[str, Any]]:
             "pub_ts": _pub_ts(vacancy.get("published_at")),
             "source": source_of(vacancy),
             "flags": list(vacancy.get("flags") or []),
+            "notes": list(vacancy.get("notes") or []),
         }
         item.update(vacancy_fields(vacancy))
         items.append(item)
@@ -528,6 +529,7 @@ function card(it){
     loadResponses(it.vid, respLine); }
   top.appendChild(s); top.appendChild(head); c.appendChild(top);
   if(it.flags&&it.flags.length) c.appendChild(el("div","req","⚠️ проверьте работодателя: "+it.flags.join(", ")));
+  if(it.notes&&it.notes.length) c.appendChild(el("div","meta","ℹ️ "+it.notes.join(" · ")));
   if(it.reasons&&it.reasons.length){ const ul=el("ul"); it.reasons.slice(0,4).forEach(r=>ul.appendChild(el("li",null,r))); c.appendChild(ul); }
   const m=list("Совпало",it.matched,"ok"); if(m) c.appendChild(m);
   const x=list("Не хватает",it.missing,"miss"); if(x) c.appendChild(x);

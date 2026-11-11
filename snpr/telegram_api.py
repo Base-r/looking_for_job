@@ -36,6 +36,7 @@ SESSION_NAME = "telegram"  # → data/telegram.session
 DEFAULT_DATA = Path(__file__).resolve().parent.parent / "data"
 MAX_MESSAGES = 300  # на канал за прогон: потолок даже при длинном окне
 MIN_LENGTH = 150  # как у веб-превью: короткие посты — не вакансии
+SILENT_DAYS = 30  # канал без постов дольше — предупреждение в журнал
 FLOOD_SLEEP = 60  # ждать «подождите N секунд» от Telegram, если N не больше
 
 
@@ -158,13 +159,18 @@ class TelethonSource:
 
     async def _channel(self, client: Any, channel: str, limit: datetime | None) -> list[dict[str, Any]]:
         found: list[dict[str, Any]] = []
+        newest = None
         async for msg in client.iter_messages(channel, limit=MAX_MESSAGES):
+            newest = newest or msg.date
             if limit and msg.date and msg.date < limit:
                 break
             # имя канала с сервера: «Analysts_Jobs», как в ссылках веб-превью
             name = getattr(getattr(msg, "chat", None), "username", None) or channel
             if vacancy := message_to_vacancy(name, msg):
                 found.append(vacancy)
+        if newest is None or datetime.now(timezone.utc) - newest > timedelta(days=SILENT_DAYS):
+            when = newest.strftime("%d.%m.%Y") if newest else "никогда"
+            self._issue(channel, f"канал молчит больше {SILENT_DAYS} дней (последний пост: {when}) — убрать из списка?")
         return found
 
     def description(self, vacancy: Mapping[str, Any]) -> str:
