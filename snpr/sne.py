@@ -1357,6 +1357,7 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
         sources,
         experience=(search_cfg.get("params") or {}).get("experience"),
         log=source_log,
+        data_dir=Path(args.seen_store).parent,
     )
     if external.active:
         fresh = list(fresh) + external.collect(hours / 24, known_ids, fresh)

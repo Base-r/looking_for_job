@@ -38,6 +38,13 @@ _REMOTE = re.compile(r"удал[её]н|удаленк|удалёнк|\bremote\b
 _TASHKENT = re.compile(r"ташкент|tashkent", re.I)
 _HREF_RE = re.compile(r'<a\s[^>]*href="([^"]+)"')
 _DIGEST = re.compile(r"подборка\b|дайджест\b|digest\b", re.I)
+# каналы публикуют и резюме соискателей — это не вакансии
+_RESUME_TAG = re.compile(r"#(?:резюме|resume|cv|opentowork|ищуработу|rezyume|rezume)\b", re.I)
+_VACANCY_TAG = re.compile(r"#(?:вакансия|vacancy|vakansiya|hiring)\b", re.I)
+
+
+def is_resume(text: str) -> bool:
+    return bool(_RESUME_TAG.search(text)) and not _VACANCY_TAG.search(text)
 _LEAD_IN = re.compile(
     r"^(?:в команду\s+)?(?:ищем|ищу|нужен|нужна|требуется|открыта вакансия|вакансия|"
     r"we are looking for|we're looking for|looking for|hiring)\s*[:\-—–]?\s*(?:an?\s+)?",
@@ -96,6 +103,8 @@ def _salary(text: str) -> dict[str, Any] | None:
 
 
 def to_vacancy(channel: str, msg_id: str, text: str, posted: str, tashkent_id: str = "2759") -> dict[str, Any] | None:
+    if is_resume(text):
+        return None
     name, company = guess_title(text)
     if not name:
         return None

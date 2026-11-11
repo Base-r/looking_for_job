@@ -53,7 +53,10 @@ class ExternalSources:
     """Сбор новых вакансий со всех включённых внешних источников и
     описания для оценки. Сбой одного источника остальные не держит."""
 
-    def __init__(self, cfg: Mapping[str, Any] | None, experience: Any = None, log: Any = None):
+    def __init__(
+        self, cfg: Mapping[str, Any] | None, experience: Any = None, log: Any = None,
+        data_dir: Any = None,
+    ):
         cfg = cfg or {}
         self.log = log
         # опыт, который ищем на hh ([search.params].experience): внешним
@@ -78,10 +81,15 @@ class ExternalSources:
         if cfg.get("telegram"):
             from .telegram_jobs import TelegramSource
 
-            self.active["telegram"] = TelegramSource(
-                channels=channels if channels is not None else DEFAULT_TELEGRAM_CHANNELS,
-                pause=pause,
-            )
+            channels = channels if channels is not None else DEFAULT_TELEGRAM_CHANNELS
+            web = TelegramSource(channels=channels, pause=pause)
+            # "telethon" — через API от вашего аккаунта, "web" — веб-превью t.me/s (откат)
+            if str(cfg.get("telegram_backend") or "web") == "telethon":
+                from .telegram_api import TelethonSource
+
+                self.active["telegram"] = TelethonSource(channels, pause=pause, data_dir=data_dir, web=web)
+            else:
+                self.active["telegram"] = web
             self.active["telegram"].on_issue = self._telegram_issue
         if cfg.get("superjob"):
             from .superjob import KEY_ENV, SuperJobSource

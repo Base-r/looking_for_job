@@ -20,3 +20,6 @@ letter_style.md
 
 # Сторонний код: своя лицензия и встроенные ключи — ставится отдельно
 hh-applicant-tool/
+# сессия Telegram = доступ к аккаунту
+*.session
+*.session-journal
