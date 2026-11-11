@@ -50,8 +50,9 @@ class ExternalSources:
     """Сбор новых вакансий со всех включённых внешних источников и
     описания для оценки. Сбой одного источника остальные не держит."""
 
-    def __init__(self, cfg: Mapping[str, Any] | None, experience: Any = None):
+    def __init__(self, cfg: Mapping[str, Any] | None, experience: Any = None, log: Any = None):
         cfg = cfg or {}
+        self.log = log
         # опыт, который ищем на hh ([search.params].experience): внешним
         # источникам такой фильтр не передать — отсекаем сами, если опыт известен
         self.experience = {str(e) for e in experience or []}
@@ -78,6 +79,13 @@ class ExternalSources:
                 channels=channels if channels is not None else DEFAULT_TELEGRAM_CHANNELS,
                 pause=pause,
             )
+            self.active["telegram"].on_issue = self._telegram_issue
+
+    def _telegram_issue(self, channel: str, text: str, failed: bool) -> None:
+        if self.log is None:
+            return
+        name = f"telegram:{channel}"
+        self.log.error(name, text) if failed else self.log.warn(name, text)
 
     def collect(self, max_age_days: float, known_ids: set[str]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
@@ -86,6 +94,8 @@ class ExternalSources:
                 items = src.list_all(max_age_days=max_age_days)
             except Exception as ex:  # noqa: BLE001 — сайт недоступен: остальные ищем
                 print(f"[{name}] список не получен: {ex}")
+                if self.log is not None:
+                    self.log.error(name, f"список не получен: {ex}")
                 continue
             new = [v for v in items if v["id"] not in known_ids]
             # сайты и каналы — все профессии подряд: только наши по названию
@@ -94,6 +104,8 @@ class ExternalSources:
                 if self.title_must.search(str(v.get("name") or "")) and self._experience_ok(v)
             ]
             print(f"{label(name)}: новых {len(new)}, по профилю {len(relevant)}")
+            if self.log is not None:
+                self.log.ok(name, len(items), len(relevant))
             out.extend(relevant)
         return dedupe(out)
 
@@ -106,7 +118,12 @@ class ExternalSources:
         src = self.active.get(source)
         if src is None:  # источник выключили, а вакансия осталась в отложенных
             src = self._make(source)
-        return src.description(vacancy)
+        try:
+            return src.description(vacancy)
+        except Exception as ex:
+            if self.log is not None:
+                self.log.warn(source, f"описание {vacancy.get('id')} не получено: {ex}")
+            raise
 
     @staticmethod
     def _make(source: str) -> Any:

@@ -1333,20 +1333,30 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
             if part
         )
     )
-    fresh = provider.search_new(
-        queries,
-        hours,
-        known_ids,
-        limit,
-        professional_roles=roles,
-        similar_resume_ids=similar_ids,
-        until_hours=until_hours,
-    )
+    from .source_log import LOG_NAME, SourceLog
+
+    source_log = SourceLog(Path(args.seen_store).parent / LOG_NAME)
+    try:
+        fresh = provider.search_new(
+            queries,
+            hours,
+            known_ids,
+            limit,
+            professional_roles=roles,
+            similar_resume_ids=similar_ids,
+            until_hours=until_hours,
+        )
+    except Exception as ex:
+        source_log.error("hh", ex)
+        raise
+    source_log.ok("hh", len(fresh))
     # внешние источники (GeekJob, Habr Career, Telegram): то же окно, только новые
     from .sources import ExternalSources
 
     external = ExternalSources(
-        sources, experience=(search_cfg.get("params") or {}).get("experience")
+        sources,
+        experience=(search_cfg.get("params") or {}).get("experience"),
+        log=source_log,
     )
     if external.active:
         fresh = list(fresh) + external.collect(hours / 24, known_ids)

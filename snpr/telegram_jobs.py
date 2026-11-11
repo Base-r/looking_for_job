@@ -162,6 +162,12 @@ class TelegramSource:
         self.pause = pause
         self.max_pages = max_pages
         self._last = 0.0
+        self.on_issue: Any = None  # (канал, текст, это_сбой) — для журнала источников
+
+    def _issue(self, channel: str, text: str, failed: bool = False) -> None:
+        print(f"[telegram] @{channel}: {text}")
+        if self.on_issue is not None:
+            self.on_issue(channel, text, failed)
 
     def _get(self, path: str) -> str:
         wait = self.pause - (time.monotonic() - self._last)
@@ -182,7 +188,7 @@ class TelegramSource:
         for _ in range(self.max_pages):
             page = self._get(f"/s/{channel}" + (f"?before={before}" if before else ""))
             if not before and not min_post_id(page):
-                print(f"[telegram] @{channel}: веб-превью закрыто или канала нет — без входа не прочитать")
+                self._issue(channel, "веб-превью закрыто или канала нет — без входа не прочитать")
                 break
             items = parse_channel(page)
             too_old = False
@@ -204,7 +210,7 @@ class TelegramSource:
             try:
                 out.extend(self.list_channel(channel, max_age_days))
             except Exception as ex:  # noqa: BLE001 — один канал не держит остальные
-                print(f"[telegram] канал @{channel} не прочитан: {ex}")
+                self._issue(channel, f"не прочитан: {ex}", failed=True)
         return out
 
     def description(self, vacancy: Mapping[str, Any]) -> str:
