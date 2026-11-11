@@ -87,7 +87,12 @@ class ExternalSources:
         name = f"telegram:{channel}"
         self.log.error(name, text) if failed else self.log.warn(name, text)
 
-    def collect(self, max_age_days: float, known_ids: set[str]) -> list[dict[str, Any]]:
+    def collect(
+        self, max_age_days: float, known_ids: set[str], current: Any = ()
+    ) -> list[dict[str, Any]]:
+        """current — вакансии hh этого прогона: копии с других площадок мимо."""
+        from .cross_dedupe import drop_cross_duplicates
+
         out: list[dict[str, Any]] = []
         for name, src in self.active.items():
             try:
@@ -107,7 +112,10 @@ class ExternalSources:
             if self.log is not None:
                 self.log.ok(name, len(items), len(relevant))
             out.extend(relevant)
-        return dedupe(out)
+        kept, dropped = drop_cross_duplicates(dedupe(out), known_ids, current)
+        if dropped:
+            print(f"Дублей между источниками отброшено: {len(dropped)}")
+        return kept
 
     def _experience_ok(self, vacancy: Mapping[str, Any]) -> bool:
         exp = str((vacancy.get("experience") or {}).get("id") or "")

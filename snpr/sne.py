@@ -1359,7 +1359,7 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
         log=source_log,
     )
     if external.active:
-        fresh = list(fresh) + external.collect(hours / 24, known_ids)
+        fresh = list(fresh) + external.collect(hours / 24, known_ids, fresh)
 
     # очередь с прошлых прогонов: незакрытые вакансии могли выпасть из окна
     # date_from, поэтому возвращаем их в пул (свежие приоритетнее — сортировка)

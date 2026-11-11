@@ -36,6 +36,7 @@ _EMOJI_EDGE = re.compile(r"^[^\w«\"(]+|[^\w»\")+]+$")
 _REMOTE_NO = re.compile(r"удал[её]нк\w*\s+нет|без удал|no remote|not remote|удаленка\s*[-—–]\s*нет", re.I)
 _REMOTE = re.compile(r"удал[её]н|удаленк|удалёнк|\bremote\b|#remote|#удаленка|#удалёнка", re.I)
 _TASHKENT = re.compile(r"ташкент|tashkent", re.I)
+_HREF_RE = re.compile(r'<a\s[^>]*href="([^"]+)"')
 _DIGEST = re.compile(r"подборка\b|дайджест\b|digest\b", re.I)
 _LEAD_IN = re.compile(
     r"^(?:в команду\s+)?(?:ищем|ищу|нужен|нужна|требуется|открыта вакансия|вакансия|"
@@ -141,6 +142,8 @@ def parse_channel(page_html: str, min_length: int = 150) -> list[dict[str, Any]]
         vacancy = to_vacancy(post.group(1), post.group(2), text, time_m.group(1) if time_m else "")
         # «Подборка вакансий…» — много вакансий в одном посте, письмо писать не на что
         if vacancy and not _DIGEST.match(vacancy["name"]):
+            # только для сверки дублей: по этим ссылкам бот не ходит
+            vacancy["links"] = [html.unescape(u) for u in _HREF_RE.findall(text_m.group(1))]
             out.append(vacancy)
     return out
 
