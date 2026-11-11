@@ -1,18 +1,22 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
+# Окружение
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
-# Other files and folders
-.settings/
+# Секреты — не в git
+.env
 
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
+# Личные данные прогона (пускы, история, логи)
+data/
 
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+
+# Личные настройки: контакты и ID резюме
+snpr/config.local.toml
+
+# Резюме и стиль писем
+profile.md
+letter_style.md
+
+# Сторонний код: своя лицензия и встроенные ключи — ставится отдельно
+hh-applicant-tool/
