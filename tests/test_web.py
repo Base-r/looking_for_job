@@ -261,18 +261,24 @@ def test_rejected_tab_and_requeue(web, tmp_path: Path) -> None:
 
     threshold = int(tomllib.loads(CONFIG.read_text(encoding="utf-8"))["scoring"]["maybe_min"])
     scores = ScoresStore(tmp_path / "scores.jsonl")
+    import time as _time
+
     low = threshold - 5
+    now = int(_time.time())
     scores.append_record(_vacancy("7"), ScoreResult(vacancy_id="7", score=low, verdict="pass",
-                         reasons=["смежная роль"]), ts=1_760_000_000)
+                         reasons=["смежная роль"]), ts=now - 3600)
     scores.append_record(_vacancy("8"), ScoreResult(vacancy_id="8", score=max(0, low - 10),
-                         verdict="pass"), ts=1_760_000_500)
+                         verdict="pass"), ts=now - 1800)
+    scores.append_record(_vacancy("9"), ScoreResult(vacancy_id="9", score=low, verdict="pass"),
+                         ts=now - 30 * 86400)
     scores.append_record(_vacancy("1"), ScoreResult(vacancy_id="1", score=80, verdict="target"))
     call, api, parked, *_ = web(api=_Api(applied=["8"]))
 
     code, data = call("/api/rejected")
     assert code == 200 and data["threshold"] == threshold
     items = {i["vid"]: i for i in data["items"]}
-    assert set(items) == {"7"}  # 8 — уже откликались, 1 — выше порога
+    # 8 — уже откликались, 9 — старше rejected_max_age_days, 1 — выше порога
+    assert set(items) == {"7"}
     assert items["7"]["score"] == low and items["7"]["date"]
     assert items["7"]["url"] == "https://hh.ru/vacancy/7"
     assert items["7"]["reasons"] == ["смежная роль"]

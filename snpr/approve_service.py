@@ -467,9 +467,25 @@ class ApproveService:
             and row["score"] < limit
             and row.get("status") not in ("applied", "parked")
             and str(row.get("vacancy_id")) not in self.hh_applied
+            and self._recent_enough(row)
         ]
         rows.sort(key=lambda r: -int(r.get("ts") or 0))
         return rows
+
+    def _recent_enough(self, row: Mapping[str, Any]) -> bool:
+        """Старые непрошедшие не показываем ([approve] rejected_max_age_days,
+        0 — все). Возраст — по дате публикации, без неё — по дате оценки.
+        Журнал оценок не трогаем: по нему бот не оценивает вакансию повторно."""
+        from .approve import vacancy_age_hours
+
+        cfg = _fresh_config(self.args, self.config).get("approve", {})
+        days = float(cfg.get("rejected_max_age_days", 0) or 0)
+        if days <= 0:
+            return True
+        hours = vacancy_age_hours(row.get("published_at"))
+        if hours is None:
+            hours = (time.time() - int(row.get("ts") or 0)) / 3600
+        return hours <= days * 24
 
     def requeue(self, vid: str) -> Outcome:
         """«Вернуть на рассмотрение»: свежая карточка → письмо → очередь."""
