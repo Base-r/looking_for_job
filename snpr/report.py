@@ -40,13 +40,18 @@ def vacancy_fields(vacancy: Mapping[str, Any]) -> dict[str, Any]:
         if isinstance(x, Mapping)
     ]
     from .areas import country_of
+    from .side_job import employment_label, salary_mode_label
 
     area = vacancy.get("area") or {}
+    salary = _salary_text(vacancy.get("salary"))
+    if salary and (mode := salary_mode_label(vacancy)):
+        salary += f" {mode}"
     city = str(area.get("name") or "")
     country = country_of(area.get("id"))
     return {
         "url": vacancy_url(dict(vacancy)),
-        "salary": _salary_text(vacancy.get("salary")),
+        "salary": salary,
+        "employment": employment_label(vacancy),
         "area": f"{city} · {country}" if country and country != city else city,
         "country": country,
         "work_format": ", ".join(f for f in formats if f),

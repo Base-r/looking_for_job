@@ -123,6 +123,9 @@ class PipelineFilter:
             if self.floor_usd is not None
             else int(config.get("floor_net_rub", 300_000))
         )
+        # подработка (частичная/проектная): свой минимум в $, 0 — решает LLM
+        side_usd = float((config.get("side_job") or {}).get("floor_net_usd", 0) or 0)
+        self.side_floor_net_rub: int = int(side_usd * self.currency_rate["USD"])
         self.max_age_hours: int = int(config.get("max_age_hours", 0))
         self.min_from_ratio: float = float(config.get("min_from_ratio", 0.5))
 
@@ -294,6 +297,18 @@ class PipelineFilter:
         value_to = salary.get("to")
         if value_from is None and value_to is None:
             return RuleVerdict("salary", True, "вилка не указана — решит скоринг")
+        from .side_job import is_side_job, salary_mode, salary_mode_label
+
+        # оплата за час/смену/услугу с месячным минимумом не сравнима
+        if salary_mode(vacancy) not in ("", "MONTH"):
+            return RuleVerdict(
+                "salary", True, f"оплата {salary_mode_label(vacancy) or salary_mode(vacancy)} — решит скоринг"
+            )
+        floor = self.floor_net_rub
+        if is_side_job(vacancy):
+            if self.side_floor_net_rub <= 0:
+                return RuleVerdict("salary", True, "подработка — решит скоринг")
+            floor = self.side_floor_net_rub
 
         currency = _txt(salary.get("currency", "RUR")) or "RUR"
         rate = self.currency_rate.get(currency)
@@ -314,16 +329,16 @@ class PipelineFilter:
 
         if value_to is not None:
             net_to = to_net(value_to)
-            if net_to < self.floor_net_rub:
+            if net_to < floor:
                 return RuleVerdict(
                     "salary",
                     False,
-                    f"верх вилки {fmt(net_to)} net < floor {fmt(self.floor_net_rub)[1:]}",
+                    f"верх вилки {fmt(net_to)} net < floor {fmt(floor)[1:]}",
                 )
             return RuleVerdict("salary", True, f"верх {fmt(net_to)} net")
 
         net_from = to_net(value_from)
-        if net_from < self.floor_net_rub * self.min_from_ratio:
+        if net_from < floor * self.min_from_ratio:
             return RuleVerdict(
                 "salary",
                 False,

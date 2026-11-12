@@ -33,6 +33,10 @@ DEFERRED_KEEP_FIELDS = (
     "experience",
     "published_at",
     "key_skills",
+    # подработка и способ оплаты (side_job.py)
+    "employment_form",
+    "employment",
+    "salary_range",
 )
 
 

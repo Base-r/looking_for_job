@@ -64,6 +64,7 @@ DEFAULT_SCORING_PROMPT = """\
 Зарплата: %(salary_line)s
 Гео: %(area_line)s
 Формат работы: %(work_format_line)s
+Занятость: %(employment_line)s
 Опыт: %(experience_line)s
 Ключевые навыки: %(key_skills)s
 
@@ -265,13 +266,19 @@ class VacancyScorer:
     def score(
         self, vacancy: Mapping[str, Any], description: str = ""
     ) -> ScoreResult:
+        from .side_job import employment_line, salary_mode_label
+
         vacancy_id = str(vacancy.get("id") or "")
+        salary_line = _salary_line(vacancy.get("salary"))
+        if salary_line != "не указана" and (mode := salary_mode_label(vacancy)):
+            salary_line += f" {mode}"
         placeholders = {
             "vacancy_name": str(vacancy.get("name") or ""),
             "employer_name": str(
                 (vacancy.get("employer") or {}).get("name") or ""
             ),
-            "salary_line": _salary_line(vacancy.get("salary")),
+            "salary_line": salary_line,
+            "employment_line": employment_line(vacancy),
             "area_line": str((vacancy.get("area") or {}).get("name") or ""),
             "work_format_line": _work_format_line(vacancy),
             "experience_line": str(

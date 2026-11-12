@@ -115,6 +115,7 @@ def rejected_items(service: ApproveService) -> dict[str, Any]:
                 "salary": str(row.get("salary") or ""),
                 "area": str(row.get("area") or ""),
                 "work_format": str(row.get("work_format") or ""),
+                "employment": str(row.get("employment") or ""),
                 "date": datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else "",
                 "ts": ts,
                 "pub_ts": _pub_ts(row.get("published_at")),
@@ -427,6 +428,7 @@ button:disabled{opacity:.5;cursor:wait}
 details{margin-top:6px}
 .resume{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;font-size:14px;color:var(--muted)}
 span.src{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;font-size:12px;background:#eef6ee;color:#2e7d32;border:1px solid #cfe6cf}
+span.side{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;font-size:12px;background:#fff4e0;color:#8a5a00;border:1px solid #f0d9a8}
 input.age{font:inherit;width:4.5em;padding:5px 6px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
 select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);max-width:100%}
 </style></head><body>
@@ -436,6 +438,7 @@ select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--lin
 <div class="tabs"><button class="tab on" id="tab1">На рассмотрение</button><button class="tab" id="tab2">Не прошли порог</button></div></header>
 <main id="list"><div class="qtools"><span>Сортировка:</span>
 <select id="qsrc"><option value="all">Все источники</option><option value="hh">hh</option><option value="geekjob">GeekJob</option><option value="habr">Habr Career</option><option value="telegram">Telegram</option><option value="superjob">SuperJob</option><option value="talent_move">Talent Move</option></select>
+<select id="qemp"><option value="all">Любая занятость</option><option value="side">Только подработка</option><option value="main">Без подработки</option></select>
 <select id="qsort"><option value="score">По скору</option><option value="date">По дате выхода вакансии</option><option value="both">Скор и свежесть вместе</option></select>
 <span id="qhint"></span>
 <span>Вышла от <input id="agemin" class="age" type="number" min="0" step="1"> до <input id="agemax" class="age" type="number" min="0" step="1"> дн. назад</span><span id="agehint"></span></div>
@@ -444,6 +447,7 @@ select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--lin
 <span id="rjinfo"></span>
 <input id="rjq" type="search" placeholder="Поиск по названию, компании, причине">
 <select id="rjsrc"><option value="all">Все источники</option><option value="hh">hh</option><option value="geekjob">GeekJob</option><option value="habr">Habr Career</option><option value="telegram">Telegram</option><option value="superjob">SuperJob</option><option value="talent_move">Talent Move</option></select>
+<select id="rjemp"><option value="all">Любая занятость</option><option value="side">Только подработка</option><option value="main">Без подработки</option></select>
 <select id="rjsort"><option value="date">По дате выхода вакансии</option><option value="score">По скору</option><option value="both">Скор и свежесть вместе</option></select>
 </div><div id="rjlist"><div class="empty">Загружаю…</div></div></main>
 <script>
@@ -493,13 +497,15 @@ function ageFilter(){
 for(const id of ["agemin","agemax"]) document.getElementById(id).addEventListener("input",()=>render(QITEMS));
 // Источник вакансии: hh / GeekJob (выбор запоминается в браузере)
 function srcFilter(id){ const v=document.getElementById(id).value; return i=>v==="all"||(i.source||"hh")===v; }
-for(const id of ["qsrc","rjsrc"]){ const s=document.getElementById(id); s.value=savedSort("snpr."+id,"all");
-  s.addEventListener("change",()=>{ saveSort("snpr."+id, s.value); id==="qsrc"?render(QITEMS):renderRejected(); }); }
+// Занятость: подработка = частичная / проектная / подработка (поле employment)
+function empFilter(id){ const v=document.getElementById(id).value; return i=>v==="all"||(v==="side")===!!i.employment; }
+for(const id of ["qsrc","rjsrc","qemp","rjemp"]){ const s=document.getElementById(id); s.value=savedSort("snpr."+id,"all");
+  s.addEventListener("change",()=>{ saveSort("snpr."+id, s.value); id[0]==="q"?render(QITEMS):renderRejected(); }); }
 function render(items){
   QITEMS=items;
   const box=document.getElementById("qlist"); box.textContent="";
-  const inAge=ageFilter(), inSrc=srcFilter("qsrc"); const visible=items.filter(i=>!hidden.has(i.vid));
-  const shown=sortRows(visible.filter(i=>inAge(i)&&inSrc(i)), qsort.value);
+  const inAge=ageFilter(), inSrc=srcFilter("qsrc"), inEmp=empFilter("qemp"); const visible=items.filter(i=>!hidden.has(i.vid));
+  const shown=sortRows(visible.filter(i=>inAge(i)&&inSrc(i)&&inEmp(i)), qsort.value);
   document.getElementById("agehint").textContent = shown.length<visible.length ? "· скрыто фильтрами: "+(visible.length-shown.length) : "";
   document.getElementById("count").textContent = shown.length ? "· ждут решения: "+shown.length : "";
   document.title = shown.length ? "("+shown.length+") Отбор вакансий" : "Отбор вакансий";
@@ -522,6 +528,7 @@ function card(it){
   head.appendChild(a);
   const GJ = it.source!=="hh" && !!SRC[it.source], SRCN=SRC[it.source]||"";
   if(GJ) head.appendChild(el("span","src",SRCN));
+  if(it.employment) head.appendChild(el("span","side",it.employment));
   head.appendChild(el("div","meta",[it.employer,it.area,it.work_format].filter(Boolean).join(" · ")));
   const extra=[it.salary||"зарплата не указана", pubText(it)].filter(Boolean).join(" · ");
   head.appendChild(el("div","meta",extra));
@@ -620,8 +627,8 @@ async function loadRejected(){
 function renderRejected(){
   const q=document.getElementById("rjq").value.trim().toLowerCase();
   const sort=document.getElementById("rjsort").value;
-  const inSrc=srcFilter("rjsrc");
-  let rows=RJ.filter(r=>inSrc(r) && (!q || [r.name,r.employer,r.area,(r.reasons||[]).join(" ")].join(" ").toLowerCase().includes(q)));
+  const inSrc=srcFilter("rjsrc"), inEmp=empFilter("rjemp");
+  let rows=RJ.filter(r=>inSrc(r) && inEmp(r) && (!q || [r.name,r.employer,r.area,(r.reasons||[]).join(" ")].join(" ").toLowerCase().includes(q)));
   rows=sortRows(rows, sort);
   document.getElementById("rjinfo").textContent="Скор ниже "+RJTH+" (maybe_min в config.toml) · показано "+rows.length+" из "+RJ.length;
   const box=document.getElementById("rjlist"); box.textContent="";
@@ -633,6 +640,7 @@ function rejCard(r){
   top.appendChild(el("div","score "+(r.score>=40?"md":"lo"), String(r.score)));
   const head=el("div"); const a=el("a","title",r.name); a.href=r.url; a.target="_blank"; a.rel="noopener noreferrer"; head.appendChild(a);
   if(SRC[r.source]) head.appendChild(el("span","src",SRC[r.source]));
+  if(r.employment) head.appendChild(el("span","side",r.employment));
   head.appendChild(el("div","meta",[r.employer,r.area,r.work_format].filter(Boolean).join(" · ")));
   head.appendChild(el("div","meta",[r.salary||"зарплата не указана", r.pub_ts?("вышла "+new Date(r.pub_ts*1000).toLocaleDateString("ru-RU")):"", r.date?("оценена "+r.date):""].filter(Boolean).join(" · ")));
   top.appendChild(head); c.appendChild(top);

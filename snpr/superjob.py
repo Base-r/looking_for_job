@@ -4,7 +4,9 @@
 120 запросов в минуту с IP; поиск отдаёт не больше 500 вакансий.
 
 Ищем две области: удалённая работа (place_of_work=2) и Ташкент. Вакансия
-приводится к формату hh, id «sj:<число>». Описание приходит сразу в
+приводится к формату hh, id «sj:<число>». Тип занятости (type_of_work)
+переводится в employment_form hh: неполная и частичная — PART,
+временная — PROJECT (на странице отбора — «подработка»). Описание приходит сразу в
 списке. Откликаетесь вы сами по ссылке (контакты API не запрашиваем).
 """
 
@@ -78,6 +80,12 @@ def to_hh(item: Mapping[str, Any]) -> dict[str, Any]:
     }
     if exp := _experience(str((item.get("experience") or {}).get("title") or "")):
         vacancy["experience"] = exp
+    # тип занятости: неполная, частичная, временная → подработка (side_job.py)
+    from .side_job import SUPERJOB_TYPES
+
+    work_type = (item.get("type_of_work") or {}).get("id")
+    if form := SUPERJOB_TYPES.get(work_type if isinstance(work_type, int) else -1):
+        vacancy["employment_form"] = {"id": form}
     return vacancy
 
 
