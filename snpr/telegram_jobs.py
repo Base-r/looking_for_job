@@ -37,6 +37,7 @@ _REMOTE_NO = re.compile(r"удал[её]нк\w*\s+нет|без удал|no remo
 _REMOTE = re.compile(r"удал[её]н|удаленк|удалёнк|\bremote\b|#remote|#удаленка|#удалёнка", re.I)
 _TASHKENT = re.compile(r"ташкент|tashkent", re.I)
 _HREF_RE = re.compile(r'<a\s[^>]*href="([^"]+)"')
+_ANCHOR_RE = re.compile(r'<a\s[^>]*href="([^"]+)"[^>]*>(.*?)</a>', re.S)
 _DIGEST = re.compile(r"подборка\b|дайджест\b|digest\b", re.I)
 # каналы публикуют и резюме соискателей — это не вакансии
 _RESUME_TAG = re.compile(r"#(?:резюме|resume|cv|opentowork|ищуработу|rezyume|rezume)\b", re.I)
@@ -134,6 +135,16 @@ def to_vacancy(channel: str, msg_id: str, text: str, posted: str, tashkent_id: s
     return vacancy
 
 
+def set_apply(vacancy: dict[str, Any], links: list[tuple[str, str]]) -> None:
+    """Куда откликаться (apply_link.py): ссылка или контакт из поста."""
+    from .apply_link import choose
+
+    found = choose(links, str(vacancy.get("description") or ""), str(vacancy.get("name") or ""),
+                   str(vacancy.get("channel") or ""))
+    if found:
+        vacancy["apply"] = found
+
+
 def parse_channel(page_html: str, min_length: int = 150) -> list[dict[str, Any]]:
     """Посты-вакансии со страницы канала (служебные и короткие — мимо)."""
     out: list[dict[str, Any]] = []
@@ -151,8 +162,11 @@ def parse_channel(page_html: str, min_length: int = 150) -> list[dict[str, Any]]
         vacancy = to_vacancy(post.group(1), post.group(2), text, time_m.group(1) if time_m else "")
         # «Подборка вакансий…» — много вакансий в одном посте, письмо писать не на что
         if vacancy and not _DIGEST.match(vacancy["name"]):
-            # только для сверки дублей: по этим ссылкам бот не ходит
+            # для сверки дублей и кнопки отклика: по этим ссылкам бот не ходит
             vacancy["links"] = [html.unescape(u) for u in _HREF_RE.findall(text_m.group(1))]
+            set_apply(vacancy, [
+                (html.unescape(u), post_text(inner)) for u, inner in _ANCHOR_RE.findall(text_m.group(1))
+            ])
             out.append(vacancy)
     return out
 

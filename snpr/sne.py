@@ -37,7 +37,63 @@ DEFERRED_KEEP_FIELDS = (
     "employment_form",
     "employment",
     "salary_range",
+    # куда откликаться на пост из Telegram (apply_link.py)
+    "apply",
 )
+
+
+def hh_from_posts(
+    api: Any,
+    items: list[dict[str, Any]],
+    known_ids: set[str],
+    current: Iterable[Mapping[str, Any]] = (),
+    budget: int = 20,
+    pause: float = 2.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Посты, где откликаться надо на hh, → сама вакансия hh.
+
+    Номер вакансии берётся из ссылки в посте (по ней бот не ходит),
+    вакансия — по API hh, как в обычном поиске. Тогда на неё можно
+    откликнуться из бота с письмом. Вернёт (вакансии hh, остальные посты,
+    полные карточки для кэша описаний). Уже виденная на hh — пост не нужен;
+    в архиве — тоже. Сбой API или исчерпан budget — пост остаётся как был.
+    """
+    from .apply_link import apply_of, hh_vacancy_id
+
+    have = {str(i) for i in known_ids} | {str(v.get("id")) for v in current}
+    cards: dict[str, dict[str, Any]] = {}
+    kept: list[dict[str, Any]] = []
+    last = 0.0
+    for post in items:
+        apply = apply_of(post)
+        hid = hh_vacancy_id(apply["url"]) if apply and apply.get("kind") == "hh" else ""
+        if not hid:
+            kept.append(post)
+            continue
+        if hid in have:
+            continue
+        if len(cards) >= budget:
+            kept.append(post)
+            continue
+        wait = pause - (time.monotonic() - last)
+        if wait > 0:
+            time.sleep(wait)
+        last = time.monotonic()
+        try:
+            card = api.get(f"/vacancies/{hid}")
+        except Exception as ex:  # noqa: BLE001 — капча/сеть: оценим как пост
+            print(f"[telegram] вакансия hh {hid} из поста не получена: {ex}")
+            kept.append(post)
+            continue
+        if not isinstance(card, dict) or str(card.get("id") or "") != hid:
+            kept.append(post)
+            continue
+        have.add(hid)
+        if card.get("archived"):
+            continue
+        card["found_via"] = str(post.get("alternate_url") or "")
+        cards[hid] = card
+    return list(cards.values()), kept, cards
 
 
 def _sort_by_published_at(vacancies: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1382,8 +1438,14 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
         log=source_log,
         data_dir=Path(args.seen_store).parent,
     )
+    prefetched: dict[str, dict[str, Any]] = {}
     if external.active:
-        fresh = list(fresh) + external.collect(hours / 24, known_ids, fresh)
+        extra = external.collect(hours / 24, known_ids, fresh)
+        # пост ведёт на вакансию hh — берём саму вакансию: отклик из бота
+        from_hh, extra, prefetched = hh_from_posts(api, extra, known_ids, fresh)
+        if from_hh:
+            print(f"Telegram: посты со ссылкой на вакансию hh → вакансии hh: {len(from_hh)}")
+        fresh = list(fresh) + from_hh + extra
 
     # очередь с прошлых прогонов: незакрытые вакансии могли выпасть из окна
     # date_from, поэтому возвращаем их в пул (свежие приоритетнее — сортировка)
@@ -1458,6 +1520,7 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
         score_budget=score_budget,
     )
     cards = VacancyCardCache(api, pause=float(search_cfg.get("card_pause_seconds", 0) or 0))
+    cards.cards.update(prefetched)  # вакансии hh из постов: карточка уже есть
     from .pipeline import PipelineAbort
 
     def describe(vacancy: Mapping[str, Any]) -> str:

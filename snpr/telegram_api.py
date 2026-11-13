@@ -28,7 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from .telegram_jobs import _DIGEST, TelegramSource, to_vacancy
+from .telegram_jobs import _DIGEST, TelegramSource, set_apply, to_vacancy
 
 ID_ENV = "TG_API_ID"
 HASH_ENV = "TG_API_HASH"
@@ -73,11 +73,30 @@ def message_to_vacancy(channel: str, msg: Any) -> dict[str, Any] | None:
     vacancy = to_vacancy(channel, str(msg.id), text, date.isoformat() if date else "")
     if not vacancy or _DIGEST.match(vacancy["name"]):
         return None
-    # только для сверки дублей: по этим ссылкам бот не ходит
+    # для сверки дублей и кнопки отклика: по этим ссылкам бот не ходит
     vacancy["links"] = [
         str(e.url) for e in getattr(msg, "entities", None) or [] if getattr(e, "url", None)
     ]
+    set_apply(vacancy, _entity_links(msg))
     return vacancy
+
+
+def _entity_links(msg: Any) -> list[tuple[str, str]]:
+    """(адрес, подпись) ссылок поста по порядку: скрытые под текстом и голые."""
+    pairs: list[tuple[str, str]] = []
+    try:
+        entities = msg.get_entities_text() if hasattr(msg, "get_entities_text") else []
+    except Exception:  # noqa: BLE001 — разметка битая: ссылки найдутся в тексте
+        entities = []
+    for entity, label in entities or []:
+        url = getattr(entity, "url", None)
+        if url:
+            pairs.append((str(url), str(label)))
+        elif type(entity).__name__ == "MessageEntityUrl":
+            pairs.append((str(label) if "://" in str(label) else f"https://{label}", str(label)))
+    if not pairs:  # объект без get_entities_text (тесты, старые версии)
+        pairs = [(str(e.url), "") for e in getattr(msg, "entities", None) or [] if getattr(e, "url", None)]
+    return pairs
 
 
 class TelethonSource:

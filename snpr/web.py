@@ -57,6 +57,7 @@ def _pub_ts(published_at: object) -> int:
 
 def queue_items(service: ApproveService) -> list[dict[str, Any]]:
     from .approve import vacancy_age_hours
+    from .apply_link import apply_of
     from .cover_letter import clean_letter
     from .sources import source_of
     from .report import vacancy_fields
@@ -86,6 +87,9 @@ def queue_items(service: ApproveService) -> list[dict[str, Any]]:
             "source": source_of(vacancy),
             "flags": list(vacancy.get("flags") or []),
             "notes": list(vacancy.get("notes") or []),
+            # пост из Telegram: куда откликаться; вакансия hh из поста: сам пост
+            "apply": apply_of(vacancy),
+            "found_via": str(vacancy.get("found_via") or ""),
         }
         item.update(vacancy_fields(vacancy))
         items.append(item)
@@ -557,10 +561,23 @@ function card(it){
   const bSend=el("button","primary",GJ?"Я откликнулся":"Откликнуться"), bSkip=el("button",null,"Пропустить"),
         bLater=el("button",null,"Позже"), bRe=el("button",null,"Переписать письмо");
   // GeekJob/Habr/Telegram: бот откликнуться не может — открываем вакансию и копируем письмо
-  const TG = it.source==="telegram";
-  const bOpen=el("button","primary",TG?"Открыть пост и скопировать письмо":"Открыть на "+SRCN+" и скопировать письмо");
-  const where = TG ? "отправьте его по контакту из поста" : "вставьте его в отклик на "+SRCN;
-  bOpen.onclick=async()=>{ window.open(it.url,"_blank","noopener");
+  const TG = it.source==="telegram", AP = it.apply;
+  // пост из Telegram: кнопка ведёт сразу туда, где откликаются (ссылка, чат, почта)
+  const OPEN = !TG ? ["Открыть на "+SRCN+" и скопировать письмо", "вставьте его в отклик на "+SRCN]
+    : !AP ? ["Открыть пост и скопировать письмо", "отправьте его по контакту из поста"]
+    : AP.kind==="contact" ? ["Написать "+AP.label+" и скопировать письмо", "вставьте его в чат с "+AP.label]
+    : AP.kind==="email" ? ["Письмо на "+AP.label+" (текст скопирован)", "проверьте письмо и отправьте"]
+    : ["Открыть ссылку для отклика и скопировать письмо", "вставьте его в отклик на сайте"];
+  const bOpen=el("button","primary",OPEN[0]); const where=OPEN[1];
+  const safe = u => /^(https?:|mailto:)/i.test(u||"") ? u : it.url;
+  const openUrl = ()=> safe(AP&&AP.kind==="email"
+    ? AP.url+"?subject="+encodeURIComponent(it.name)+"&body="+encodeURIComponent(ta.value)
+    : (AP ? AP.url : it.url));
+  if(TG && AP){ const p=el("div","meta"); p.appendChild(document.createTextNode("Отклик: "+(AP.label||AP.url)+" · "));
+    const pa=el("a",null,"пост в Telegram"); pa.href=it.url; pa.target="_blank"; pa.rel="noopener noreferrer"; p.appendChild(pa); head.appendChild(p); }
+  if(it.found_via){ const p=el("div","meta"); p.appendChild(document.createTextNode("Найдена в Telegram: "));
+    const pa=el("a",null,"пост"); pa.href=it.found_via; pa.target="_blank"; pa.rel="noopener noreferrer"; p.appendChild(pa); head.appendChild(p); }
+  bOpen.onclick=async()=>{ window.open(openUrl(),"_blank","noopener");
     try{ await navigator.clipboard.writeText(ta.value); st.textContent="Письмо скопировано — "+where+", потом нажмите «Я откликнулся»."; }
     catch(e){ ta.select(); st.textContent="Скопируйте письмо (Ctrl+C), "+where+", потом нажмите «Я откликнулся»."; }
     st.className="status"; };
