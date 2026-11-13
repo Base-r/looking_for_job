@@ -437,7 +437,7 @@ select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--lin
 <div class="dry" id="dry">Пробный режим: отклики НЕ отправляются и ничего не записывается.</div>
 <div class="tabs"><button class="tab on" id="tab1">На рассмотрение</button><button class="tab" id="tab2">Не прошли порог</button></div></header>
 <main id="list"><div class="qtools"><span>Сортировка:</span>
-<select id="qsrc"><option value="all">Все источники</option><option value="hh">hh</option><option value="geekjob">GeekJob</option><option value="habr">Habr Career</option><option value="telegram">Telegram</option><option value="superjob">SuperJob</option><option value="talent_move">Talent Move</option></select>
+<select id="qsrc"><option value="all">Все источники</option><option value="hh">hh</option><option value="geekjob">GeekJob</option><option value="habr">Habr Career</option><option value="telegram">Telegram</option><option value="superjob">SuperJob</option><option value="talent_move">Talent Move</option><option value="avito">Авито</option></select>
 <select id="qemp"><option value="all">Любая занятость</option><option value="side">Только подработка</option><option value="main">Без подработки</option></select>
 <select id="qsort"><option value="score">По скору</option><option value="date">По дате выхода вакансии</option><option value="both">Скор и свежесть вместе</option></select>
 <span id="qhint"></span>
@@ -446,12 +446,12 @@ select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--lin
 <main id="rejected" class="hidden"><div class="tools">
 <span id="rjinfo"></span>
 <input id="rjq" type="search" placeholder="Поиск по названию, компании, причине">
-<select id="rjsrc"><option value="all">Все источники</option><option value="hh">hh</option><option value="geekjob">GeekJob</option><option value="habr">Habr Career</option><option value="telegram">Telegram</option><option value="superjob">SuperJob</option><option value="talent_move">Talent Move</option></select>
+<select id="rjsrc"><option value="all">Все источники</option><option value="hh">hh</option><option value="geekjob">GeekJob</option><option value="habr">Habr Career</option><option value="telegram">Telegram</option><option value="superjob">SuperJob</option><option value="talent_move">Talent Move</option><option value="avito">Авито</option></select>
 <select id="rjemp"><option value="all">Любая занятость</option><option value="side">Только подработка</option><option value="main">Без подработки</option></select>
 <select id="rjsort"><option value="date">По дате выхода вакансии</option><option value="score">По скору</option><option value="both">Скор и свежесть вместе</option></select>
 </div><div id="rjlist"><div class="empty">Загружаю…</div></div></main>
 <script>
-const SRC={geekjob:"GeekJob",habr:"Habr Career",telegram:"Telegram",superjob:"SuperJob",talent_move:"Talent Move"};
+const SRC={geekjob:"GeekJob",habr:"Habr Career",telegram:"Telegram",superjob:"SuperJob",talent_move:"Talent Move",avito:"Авито"};
 
 const TOKEN="__TOKEN__", DRY=__DRY__;
 const hidden=new Set(); const drafts={}; const chosenResume={}; let busy=false; let RESUMES=[];

@@ -22,7 +22,10 @@ _LEGACY = {"part": "PART", "project": "PROJECT", "full": "FULL"}
 # SuperJob type_of_work → employment_form hh
 SUPERJOB_TYPES = {6: "FULL", 7: "PROJECT", 9: "FLY_IN_FLY_OUT", 10: "PART", 13: "PART", 14: "PART"}
 # hh salary_range.mode: как считается сумма
-SALARY_MODES = {"HOUR": "за час", "SHIFT": "за смену", "SERVICE": "за услугу", "FLY_IN_FLY_OUT": "за вахту"}
+SALARY_MODES = {
+    "HOUR": "за час", "SHIFT": "за смену", "SERVICE": "за услугу", "FLY_IN_FLY_OUT": "за вахту",
+    "WEEK": "в неделю",  # Авито
+}
 
 
 def employment_form(vacancy: Mapping[str, Any]) -> str:

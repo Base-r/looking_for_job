@@ -195,6 +195,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="JSONL-дедуп обработанных вакансий",
     )
     sne.add_argument(
+        "--only-source",
+        default="",
+        help="Только этот внешний источник, без поиска hh (например avito: "
+        "оценить то, что Claude собрал на Авито)",
+    )
+    sne.add_argument(
         "--ai",
         action=argparse.BooleanOptionalAction,
         default=True,

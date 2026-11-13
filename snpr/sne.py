@@ -1350,20 +1350,29 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
     from .source_log import LOG_NAME, SourceLog
 
     source_log = SourceLog(Path(args.seen_store).parent / LOG_NAME)
-    try:
-        fresh = provider.search_new(
-            queries,
-            hours,
-            known_ids,
-            limit,
-            professional_roles=roles,
-            similar_resume_ids=similar_ids,
-            until_hours=until_hours,
-        )
-    except Exception as ex:
-        source_log.error("hh", ex)
-        raise
-    source_log.ok("hh", len(fresh))
+    only = str(getattr(args, "only_source", "") or "").strip()
+    if only:
+        # только один внешний источник (например, Авито из входящих): hh не ищем
+        print(f"Только источник {only}: поиск hh пропущен.")
+        fresh = []
+        sources = {
+            k: v for k, v in sources.items() if not isinstance(v, bool)
+        } | {only: True}
+    else:
+        try:
+            fresh = provider.search_new(
+                queries,
+                hours,
+                known_ids,
+                limit,
+                professional_roles=roles,
+                similar_resume_ids=similar_ids,
+                until_hours=until_hours,
+            )
+        except Exception as ex:
+            source_log.error("hh", ex)
+            raise
+        source_log.ok("hh", len(fresh))
     # внешние источники (GeekJob, Habr Career, Telegram): то же окно, только новые
     from .sources import ExternalSources
 
@@ -1378,10 +1387,13 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
 
     # очередь с прошлых прогонов: незакрытые вакансии могли выпасть из окна
     # date_from, поэтому возвращаем их в пул (свежие приоритетнее — сортировка)
+    from .sources import source_of
+
     queued = [
         item
         for item in deferred_store.load()
         if str(item.get("id") or "") not in known_ids
+        and (not only or source_of(item) == only)
     ]
     by_id: dict[str, dict[str, Any]] = {
         str(item.get("id")): item for item in fresh if item.get("id")
@@ -1414,7 +1426,7 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
         f"(из поиска {len(fresh)}, из очереди {len(queued)})"
     )
     if not new_vacancies:
-        if not args.dry_run:
+        if not args.dry_run and not only:
             # пустой такт тоже успешен: сжимаем окно до floor
             _touch_marker(marker)
         return 0
@@ -1534,7 +1546,8 @@ def _run_sne_locked(args: argparse.Namespace) -> int:
                 "`python -m snpr approve` (y/n/e по каждой)."
             )
         tool._persist()
-        _touch_marker(marker)
+        if not only:  # окно поиска hh считается от прогонов с hh
+            _touch_marker(marker)
 
     print()
     print_summary(len(candidates), stats, sent, forced_human, args.dry_run)

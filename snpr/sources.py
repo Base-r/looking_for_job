@@ -9,10 +9,14 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-PREFIXES = {"gj:": "geekjob", "hc:": "habr", "tg:": "telegram", "sj:": "superjob", "tm:": "talent_move"}
+PREFIXES = {
+    "gj:": "geekjob", "hc:": "habr", "tg:": "telegram", "sj:": "superjob", "tm:": "talent_move",
+    "av:": "avito",
+}
 LABELS = {
     "hh": "hh", "geekjob": "GeekJob", "habr": "Habr Career",
     "telegram": "Telegram", "superjob": "SuperJob", "talent_move": "Talent Move",
+    "avito": "Авито",
 }
 
 # по умолчанию: что из вакансий внешних источников вообще смотреть
@@ -107,6 +111,12 @@ class ExternalSources:
             self.active["talent_move"] = TalentMoveSource(
                 categories=cfg.get("talent_move_categories") or DEFAULT_CATEGORIES, pause=pause
             )
+        # Авито: входящие, которые Claude собрал во встроенном браузере
+        if cfg.get("avito") and data_dir is not None:
+            from .avito import AvitoSource
+
+            self.active["avito"] = AvitoSource(data_dir)
+        self.data_dir = data_dir
 
     def _telegram_issue(self, channel: str, text: str, failed: bool) -> None:
         if self.log is None:
@@ -152,7 +162,7 @@ class ExternalSources:
         source = source_of(vacancy)
         src = self.active.get(source)
         if src is None:  # источник выключили, а вакансия осталась в отложенных
-            src = self._make(source)
+            src = self._make(source, self.data_dir)
         try:
             text = src.description(vacancy)
         except Exception as ex:
@@ -172,7 +182,13 @@ class ExternalSources:
                 self.log.warn(source, f"подозрительно {vacancy.get('id')}: {', '.join(flags)}")
 
     @staticmethod
-    def _make(source: str) -> Any:
+    def _make(source: str, data_dir: Any = None) -> Any:
+        if source == "avito":
+            from pathlib import Path
+
+            from .avito import AvitoSource
+
+            return AvitoSource(data_dir or Path(__file__).resolve().parent.parent / "data")
         if source == "geekjob":
             from .geekjob import GeekJobSource
 
